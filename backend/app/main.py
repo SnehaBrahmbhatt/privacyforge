@@ -5,15 +5,15 @@ from fastapi.responses import FileResponse
 import os
 import sys
 
-# Add backend directory to Python path so 'app' module is found
-sys.path.insert(0, os.path.dirname(__file__))
+# main.py is inside backend/app/, so add backend/app/ to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.routes import generate
-from app.routes import scan
-from app.routes import dashboard
-from app.routes import compliance
-from app.routes import anonymize
-from app.routes import history
+from routes import generate
+from routes import scan
+from routes import dashboard
+from routes import compliance
+from routes import anonymize
+from routes import history
 
 app = FastAPI(title="PrivacyForge API", version="1.0.0")
 
@@ -40,10 +40,12 @@ app.include_router(compliance.router, prefix="/api", tags=["compliance"])
 app.include_router(anonymize.router, prefix="/api", tags=["anonymize"])
 app.include_router(history.router, prefix="/api", tags=["history"])
 
-# Serve React frontend static files
-# __file__ = /repo/backend/main.py → go up one level to find frontend/dist
-frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../frontend/dist")
-frontend_dist = os.path.abspath(frontend_dist)
+# main.py is at backend/app/main.py
+# frontend/dist is at frontend/dist
+# so go up 3 levels: app -> backend -> root -> frontend/dist
+frontend_dist = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../frontend/dist")
+)
 
 if os.path.exists(frontend_dist):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
