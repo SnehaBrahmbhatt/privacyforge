@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SkeletonCard } from '@/components/ui/skeleton'
 import { ErrorState } from '@/components/ErrorState'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatDate, riskBg } from '@/lib/utils'
 import { History as HistoryIcon, Search, RefreshCw } from 'lucide-react'
 
@@ -109,7 +109,7 @@ export default function History() {
             <DialogTitle>Scan Detail</DialogTitle>
           </DialogHeader>
           {selected && (
-            <DialogBody className="space-y-4">
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant={selected.risk_level==='low'?'success':selected.risk_level==='medium'?'warning':'danger'} className="capitalize">{selected.risk_level} risk</Badge>
                 <span className="text-xs text-wm-text-muted">{formatDate(selected.timestamp)}</span>
@@ -129,7 +129,7 @@ export default function History() {
                   </div>
                 </div>
               )}
-            </DialogBody>
+            </div>
           )}
         </DialogContent>
       </Dialog>

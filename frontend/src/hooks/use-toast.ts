@@ -19,3 +19,9 @@ export function useToastState() {
   const dismiss = useCallback((id: string) => setToasts((p) => p.filter((t) => t.id !== id)), [])
   return { toasts, dismiss }
 }
+export function useToast() {
+  return {
+    toast,
+    ...useToastState(),
+  };
+}
