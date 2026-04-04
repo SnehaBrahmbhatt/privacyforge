@@ -1,91 +1,76 @@
-"""
-Anonymization service.
-Supports four strategies: mask | redact | replace | hash
-"""
-from __future__ import annotations
-
-import hashlib
 import re
-
 from faker import Faker
-
-from app.models.schemas import AnonymizeRequest, AnonymizeResult
-from app.services.scan_service import scan_text
 
 fake = Faker()
 
-# Faker replacements per entity type
-_REPLACEMENTS: dict[str, callable] = {
-    "PERSON":       fake.name,
-    "EMAIL":        fake.email,
-    "PHONE":        fake.phone_number,
-    "SSN":          lambda: f"{fake.numerify('###')}-{fake.numerify('##')}-{fake.numerify('####')}",
-    "CREDIT_CARD":  lambda: fake.credit_card_number(card_type=None),
-    "IP_ADDRESS":   fake.ipv4,
-    "URL":          fake.url,
-    "DATE":         lambda: fake.date(pattern="%m/%d/%Y"),
-    "ZIPCODE":      fake.zipcode,
-    "IBAN":         lambda: fake.iban(),
+_PATTERNS = {
+    "email": r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
+    "phone": r"\b(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}\b",
+    "name": r"(?<!\.\s)\b([A-Z][a-z]+ [A-Z][a-z]+)\b",
+    "credit_card": r"\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b",
+    "ip_address": r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+}
+
+_REPLACERS = {
+    "mask": {
+        "email": lambda m: m.group()[0] + "***@***.***",
+        "phone": lambda m: "***-***-****",
+        "name": lambda m: m.group().split()[0][0] + "*** " + m.group().split()[1][0] + "***",
+        "credit_card": lambda m: "****-****-****-" + m.group().replace(" ", "").replace("-", "")[-4:],
+        "ip_address": lambda m: "***.***.***.***",
+    },
+    "suppress": {
+        "email": lambda m: "[EMAIL REMOVED]",
+        "phone": lambda m: "[PHONE REMOVED]",
+        "name": lambda m: "[NAME REMOVED]",
+        "credit_card": lambda m: "[CARD REMOVED]",
+        "ip_address": lambda m: "[IP REMOVED]",
+    },
+    "synthetic": {
+        "email": lambda m: fake.email(),
+        "phone": lambda m: fake.phone_number(),
+        "name": lambda m: fake.name(),
+        "credit_card": lambda m: fake.credit_card_number(card_type=None),
+        "ip_address": lambda m: fake.ipv4(),
+    },
+    "generalize": {
+        "email": lambda m: "user@domain.com",
+        "phone": lambda m: "+X-XXX-XXX-XXXX",
+        "name": lambda m: "Individual",
+        "credit_card": lambda m: "XXXX-XXXX-XXXX-XXXX",
+        "ip_address": lambda m: "X.X.X.X",
+    },
 }
 
 
-def _mask_value(value: str) -> str:
-    """Replace all characters except first/last with ████."""
-    if len(value) <= 2:
-        return "█" * len(value)
-    return value[0] + "█" * (len(value) - 2) + value[-1]
+def anonymize_text(text: str, strategy: str, entities: list[str]) -> dict:
+    if strategy not in _REPLACERS:
+        strategy = "mask"
 
+    replacers = _REPLACERS[strategy]
+    targets = entities if entities else list(_PATTERNS.keys())
+    result = text
+    masked_count = 0
 
-def _hash_value(value: str) -> str:
-    """Deterministic 8-char hex hash (same input → same output)."""
-    return hashlib.sha256(value.encode()).hexdigest()[:8]
+    for entity_type in targets:
+        pattern = _PATTERNS.get(entity_type)
+        if not pattern:
+            continue
+        replacer = replacers.get(entity_type)
+        if not replacer:
+            continue
 
+        def make_replacer(fn):
+            def _replace(m):
+                nonlocal masked_count
+                masked_count += 1
+                return fn(m)
+            return _replace
 
-def _redact_value(entity_type: str) -> str:
-    return f"[{entity_type}]"
+        result = re.sub(pattern, make_replacer(replacer), result)
 
-
-def _replace_value(entity_type: str) -> str:
-    fn = _REPLACEMENTS.get(entity_type)
-    return fn() if fn else f"[{entity_type}]"
-
-
-def anonymize_text(req: AnonymizeRequest) -> AnonymizeResult:
-    """
-    Detect PII in text and apply the chosen anonymization strategy.
-    """
-    scan = scan_text(req.text)
-
-    # Filter by requested entity types (empty = apply to all)
-    targets = req.entities if req.entities else [e.type for e in scan.entities]
-    entities_to_process = [e for e in scan.entities if e.type in targets]
-
-    # Sort descending by start position so replacements don't shift offsets
-    entities_to_process.sort(key=lambda e: e.start, reverse=True)
-
-    result = req.text
-    count = 0
-
-    for entity in entities_to_process:
-        original = result[entity.start:entity.end]
-
-        if req.strategy == "mask":
-            replacement = _mask_value(original)
-        elif req.strategy == "redact":
-            replacement = _redact_value(entity.type)
-        elif req.strategy == "replace":
-            replacement = _replace_value(entity.type)
-        elif req.strategy == "hash":
-            replacement = _hash_value(original)
-        else:
-            replacement = _redact_value(entity.type)
-
-        result = result[:entity.start] + replacement + result[entity.end:]
-        count += 1
-
-    return AnonymizeResult(
-        anonymized_text=result,
-        entities_masked=count,
-        strategy=req.strategy,
-        original_entity_count=len(scan.entities),
-    )
+    return {
+        "anonymized_text": result,
+        "entities_masked": masked_count,
+        "strategy": strategy,
+    }

@@ -1,12 +1,17 @@
-frontend/.vite/
+# Python
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+__pycache__/
+*.pyc
 
 # Node
 node_modules/
-dist/
-.env
-.DS_Store
 
-# Python
-*.pyc
-__pycache__/
+# Env files
 .env
+
+# Build
+dist/
+build/

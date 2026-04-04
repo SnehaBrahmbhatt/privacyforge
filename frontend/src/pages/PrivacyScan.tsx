@@ -6,40 +6,20 @@ import {
   FileText,
   X,
   ChevronRight,
-  AlertTriangle,
   ShieldCheck,
   Eye,
   EyeOff,
   Copy,
   CheckCheck,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type ScanResult, type Entity } from "@/lib/api";
 import { riskBg, riskColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { ErrorState } from "@/components/ErrorState";
+import { ErrorState } from "@/components/Errorstate";
 import { useToast } from "@/hooks/use-toast";
-
-/* ─── types ─── */
-interface ScanField {
-  field: string;
-  type: string;
-  risk_level: "low" | "medium" | "high";
-  sample?: string;
-  confidence: number;
-}
-
-interface ScanResult {
-  scan_id: string;
-  total_fields: number;
-  pii_fields: number;
-  risk_score: number;
-  fields: ScanField[];
-  recommendations: string[];
-}
 
 /* ─── drop zone ─── */
 function DropZone({
@@ -69,9 +49,7 @@ function DropZone({
         <FileText className="h-8 w-8 text-[#00e5a0] shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate">{file.name}</p>
-          <p className="text-xs text-white/40 mt-0.5">
-            {(file.size / 1024).toFixed(1)} KB
-          </p>
+          <p className="text-xs text-white/40 mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
         </div>
         <button
           onClick={onClear}
@@ -88,17 +66,17 @@ function DropZone({
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
-      className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-14 cursor-pointer transition-all duration-200
-        ${dragging
+      className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-14 cursor-pointer transition-all duration-200 ${
+        dragging
           ? "border-[#00e5a0] bg-[#00e5a0]/5"
           : "border-white/10 hover:border-white/20 hover:bg-white/[0.02]"
-        }`}
-      onClick={() => document.getElementById("file-input")?.click()}
+      }`}
+      onClick={() => document.getElementById("scan-file-input")?.click()}
     >
       <input
-        id="file-input"
+        id="scan-file-input"
         type="file"
-        accept=".csv,.json,.xlsx,.parquet"
+        accept=".csv,.json,.txt"
         className="sr-only"
         onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
       />
@@ -107,136 +85,114 @@ function DropZone({
       </div>
       <div className="text-center">
         <p className="text-sm font-medium text-white/70">
-          Drop your dataset here or{" "}
-          <span className="text-[#00e5a0]">browse files</span>
+          Drop your file here or{" "}
+          <span className="text-[#00e5a0]">browse</span>
         </p>
-        <p className="text-xs text-white/30 mt-1">CSV, JSON, XLSX, Parquet · up to 100 MB</p>
+        <p className="text-xs text-white/30 mt-1">CSV, JSON, or plain text</p>
       </div>
     </div>
   );
 }
 
-/* ─── field risk row ─── */
-function FieldRow({ field }: { field: ScanField }) {
-  const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    if (field.sample) {
-      navigator.clipboard.writeText(field.sample);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }
-  };
-
+/* ─── entity risk row ─── */
+function EntityRow({ entity }: { entity: Entity }) {
+  const [visible, setVisible] = useState(false);
   return (
-    <div className="flex items-center gap-4 rounded-lg px-4 py-3 hover:bg-white/[0.03] transition-colors group">
-      <div
-        className={`h-2 w-2 rounded-full shrink-0 ${
-          field.risk_level === "high"
-            ? "bg-red-400"
-            : field.risk_level === "medium"
-            ? "bg-amber-400"
-            : "bg-[#00e5a0]"
+    <div className="flex items-center gap-4 px-5 py-3 hover:bg-white/[0.02] transition-colors">
+      <Badge
+        variant="wm"
+        className={`shrink-0 uppercase text-[10px] ${
+          entity.type === "email" || entity.type === "credit_card"
+            ? "bg-red-400/10 text-red-400"
+            : entity.type === "phone"
+            ? "bg-amber-400/10 text-amber-400"
+            : "bg-[#00e5a0]/10 text-[#00e5a0]"
         }`}
-      />
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">{field.field}</span>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-white/40 border-white/10">
-            {field.type}
-          </Badge>
-        </div>
-        {field.sample && (
-          <p className="text-xs text-white/30 mt-0.5 font-mono truncate">
-            {revealed ? field.sample : "•".repeat(Math.min(field.sample.length, 20))}
-          </p>
-        )}
-      </div>
-
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="w-16">
-          <Progress value={field.confidence * 100} className="h-1" />
-        </div>
-        <span className="text-[10px] text-white/30 w-8 text-right">
-          {Math.round(field.confidence * 100)}%
-        </span>
-
-        {field.sample && (
-          <>
-            <button
-              onClick={() => setRevealed((r) => !r)}
-              className="p-1 rounded text-white/20 hover:text-white/60 transition-colors"
-            >
-              {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              onClick={copy}
-              className="p-1 rounded text-white/20 hover:text-white/60 transition-colors"
-            >
-              {copied ? <CheckCheck className="h-3.5 w-3.5 text-[#00e5a0]" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-          </>
-        )}
-
-        <Badge
-          variant="wm"
-          className={`${riskBg(field.risk_level)} ${riskColor(field.risk_level)} text-[10px]`}
-        >
-          {field.risk_level}
-        </Badge>
-      </div>
+      >
+        {entity.type}
+      </Badge>
+      <span className="flex-1 text-sm font-mono text-white/70 truncate">
+        {visible ? entity.value : "•".repeat(Math.min(entity.value.length, 20))}
+      </span>
+      <span className="text-xs text-white/30">{Math.round(entity.confidence * 100)}%</span>
+      <button
+        onClick={() => setVisible((v) => !v)}
+        className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white transition-colors"
+      >
+        {visible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </button>
     </div>
   );
 }
 
 /* ─── results panel ─── */
 function Results({ result }: { result: ScanResult }) {
-  const riskPercent = (result.pii_fields / Math.max(result.total_fields, 1)) * 100;
+  const [copied, setCopied] = useState(false);
+  const riskPercent = Math.round(result.risk_score * 100);
+
+  const copyReport = () => {
+    const text = [
+      `Risk Level: ${result.risk_level.toUpperCase()} (${riskPercent}%)`,
+      `Entities Found: ${result.entities.length}`,
+      "",
+      "Entities:",
+      ...result.entities.map((e) => `  ${e.type}: ${e.value}`),
+      "",
+      "Recommendations:",
+      ...result.recommendations.map((r) => `  • ${r}`),
+    ].join("\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-      {/* Score row */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Total Fields", value: result.total_fields, icon: FileText },
-          { label: "PII Detected", value: result.pii_fields, icon: AlertTriangle, accent: true },
-          { label: "Risk Score", value: `${result.risk_score}/100`, icon: ShieldCheck },
-        ].map(({ label, value, icon: Icon, accent }) => (
-          <Card key={label} glass className="p-4 text-center space-y-1">
-            <Icon className={`h-5 w-5 mx-auto ${accent ? "text-amber-400" : "text-white/30"}`} />
-            <p className="text-2xl font-bold text-white">{value}</p>
-            <p className="text-[11px] text-white/40 uppercase tracking-wider">{label}</p>
-          </Card>
-        ))}
-      </div>
-
-      {/* PII ratio bar */}
+    <div className="space-y-4">
+      {/* Risk score */}
       <Card glass className="p-5 space-y-3">
-        <div className="flex justify-between text-xs text-white/50">
-          <span>PII field ratio</span>
-          <span>{riskPercent.toFixed(0)}%</span>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Risk Score</h3>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="wm"
+              className={`${riskBg(result.risk_level)} ${riskColor(result.risk_level)}`}
+            >
+              {result.risk_level}
+            </Badge>
+            <button
+              onClick={copyReport}
+              className="p-1.5 rounded hover:bg-white/10 text-white/30 hover:text-white transition-colors"
+              title="Copy report"
+            >
+              {copied ? <CheckCheck className="h-4 w-4 text-[#00e5a0]" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <div className="flex items-end gap-2">
+          <span className="text-4xl font-bold text-white">{riskPercent}%</span>
+          <span className="text-sm text-white/40 mb-1">risk level</span>
         </div>
         <Progress value={riskPercent} variant={riskPercent > 50 ? "ring" : "default"} />
       </Card>
 
-      {/* Fields table */}
-      <Card glass className="overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">
-            Detected Fields
-          </h3>
-          <Badge variant="wm" className="bg-white/5 text-white/40">
-            {result.fields.length} fields
-          </Badge>
-        </div>
-        <div className="divide-y divide-white/5 max-h-80 overflow-y-auto">
-          {result.fields.map((f, i) => (
-            <FieldRow key={i} field={f} />
-          ))}
-        </div>
-      </Card>
+      {/* Detected entities table */}
+      {result.entities.length > 0 && (
+        <Card glass className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+            <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">
+              Detected Entities
+            </h3>
+            <Badge variant="wm" className="bg-white/5 text-white/40">
+              {result.entities.length} found
+            </Badge>
+          </div>
+          <div className="divide-y divide-white/5 max-h-72 overflow-y-auto">
+            {result.entities.map((e, i) => (
+              <EntityRow key={i} entity={e} />
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Recommendations */}
       {result.recommendations?.length > 0 && (
@@ -262,26 +218,32 @@ function Results({ result }: { result: ScanResult }) {
 export default function PrivacyScan() {
   const [file, setFile] = useState<File | null>(null);
   const [pasteText, setPasteText] = useState("");
-  const [mode, setMode] = useState<"file" | "paste">("file");
+  const [mode, setMode] = useState<"file" | "paste">("paste");
   const { toast } = useToast();
 
+  // ✅ Uses api.scan(text) — correct fetch-based call
   const { mutate, data, isPending, error, reset } = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<ScanResult> => {
       if (mode === "file" && file) {
-        const form = new FormData();
-        form.append("file", file);
-        return api.post("/scan", form, {
-          headers: { "Content-Type": "multipart/form-data" },
-        }).then((r) => r.data as ScanResult);
+        // Read the file as text, then scan it
+        const text = await file.text();
+        return api.scan(text);
       } else {
-        return api.post("/scan/text", { text: pasteText }).then((r) => r.data as ScanResult);
+        return api.scan(pasteText);
       }
     },
     onError: () => {
-      toast({ title: "Scan failed", description: "Check your file and try again.", variant: "destructive" });
+      toast({
+        title: "Scan failed",
+        description: "Check your input and try again.",
+        variant: "destructive",
+      });
     },
-    onSuccess: () => {
-      toast({ title: "Scan complete", description: "PII analysis ready.", variant: "success" as any });
+    onSuccess: (result) => {
+      toast({
+        title: "Scan complete",
+        description: `Found ${result.entities.length} entities. Risk: ${result.risk_level}.`,
+      });
     },
   });
 
@@ -289,29 +251,25 @@ export default function PrivacyScan() {
 
   return (
     <div className="min-h-screen p-6 lg:p-8 space-y-8 max-w-4xl mx-auto">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
           <ScanSearch className="h-6 w-6 text-[#00e5a0]" />
           Privacy Scan
         </h1>
         <p className="text-sm text-white/40 mt-1">
-          Detect PII, sensitive fields, and privacy risk in your datasets
+          Detect PII, sensitive fields, and privacy risk in your data
         </p>
       </div>
 
-      {/* Input panel */}
       <Card glass className="p-6 space-y-5">
         {/* Mode toggle */}
         <div className="flex rounded-lg bg-white/5 p-1 gap-1 w-fit">
-          {(["file", "paste"] as const).map((m) => (
+          {(["paste", "file"] as const).map((m) => (
             <button
               key={m}
               onClick={() => { setMode(m); reset(); }}
               className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-                mode === m
-                  ? "bg-[#00e5a0] text-black"
-                  : "text-white/50 hover:text-white"
+                mode === m ? "bg-[#00e5a0] text-black" : "text-white/50 hover:text-white"
               }`}
             >
               {m === "file" ? "Upload File" : "Paste Text"}
@@ -322,21 +280,18 @@ export default function PrivacyScan() {
         {mode === "file" ? (
           <DropZone file={file} onFile={setFile} onClear={() => { setFile(null); reset(); }} />
         ) : (
-          <Textarea
-            label="Paste your data (CSV, JSON, or plain text)"
-            placeholder={`name,email,phone\nJohn Doe,john@example.com,+1-555-0100`}
-            maxChars={50000}
+          <textarea
+            placeholder={`Paste CSV, JSON, or plain text here...\n\nExample:\nname,email,phone\nJohn Doe,john@example.com,+1-555-0100`}
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
-            className="min-h-[180px] font-mono text-xs"
+            className="w-full min-h-[160px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white/80 placeholder:text-white/25 focus:outline-none focus:border-[#00e5a0]/40 resize-none"
           />
         )}
 
         <Button
           onClick={() => mutate()}
           disabled={!canScan || isPending}
-          variant="stripe"
-          className="w-full gap-2"
+          className="w-full gap-2 bg-[#00e5a0] text-black hover:bg-[#00e5a0]/90 font-semibold"
         >
           {isPending ? (
             <>
@@ -345,19 +300,18 @@ export default function PrivacyScan() {
             </>
           ) : (
             <>
-              <ScanSearch className="h-4 w-4" />
+              <ShieldCheck className="h-4 w-4" />
               Run Privacy Scan
             </>
           )}
         </Button>
       </Card>
 
-      {/* Results / Error */}
       {error && (
         <ErrorState
           kind="server"
           inline
-          message="The scan could not be completed. Please verify your input and try again."
+          message="The scan could not be completed. Verify your input and try again."
           onRetry={() => mutate()}
         />
       )}

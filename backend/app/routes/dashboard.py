@@ -1,44 +1,54 @@
-"""
-Dashboard routes.
-
-GET /dashboard/stats   — aggregate stats for the stats cards
-GET /scans/recent      — recent scan activity list (alias for history[:8])
-"""
-from __future__ import annotations
-
 from fastapi import APIRouter
+from app.routes.scan import _scan_history
 
-from app.services import history_service
-
-router = APIRouter(tags=["dashboard"])
-
-
-@router.get("/dashboard/stats")
-async def dashboard_stats():
-    """
-    Return aggregate statistics for the dashboard stat cards.
-    """
-    return history_service.get_stats()
+router = APIRouter()
 
 
 @router.get("/scans/recent")
-async def recent_scans():
-    """
-    Return the 8 most recent scans for the dashboard activity feed.
-    This is a thin alias over the history endpoint.
-    """
-    history = history_service.get_history(limit=8)
-    return [
-        {
-            "id": h.id,
-            "timestamp": h.timestamp,
-            "risk_level": h.risk_level,
-            "entity_count": h.entity_count,
-            "preview": h.preview,
-            # Fields the old Dashboard page also reads
-            "filename": h.preview[:40],
-            "name": h.preview[:40],
-            "created_at": h.timestamp,
+def recent_scans():
+    """Returns the 10 most recent scans — used by the Dashboard."""
+    return _scan_history[:10]
+
+
+@router.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@router.get("/dashboard/stats")
+def dashboard_stats():
+    total = len(_scan_history)
+    if total == 0:
+        return {
+            "total_scans": 0,
+            "risk_score": 0,
+            "pii_detected": 0,
+            "compliance_rate": 100,
+            "recent_scans": [],
         }
-        for h in history
+
+    pii_total = sum(r["entity_count"] for r in _scan_history)
+    avg_risk = sum(
+        {"low": 0.1, "medium": 0.5, "high": 0.9}[r["risk_level"]]
+        for r in _scan_history
+    ) / total
+    compliant = sum(1 for r in _scan_history if r["risk_level"] == "low")
+    compliance_rate = round(compliant / total * 100, 1)
+
+    recent = [
+        {
+            "id": r["id"],
+            "timestamp": r["timestamp"],
+            "risk_level": r["risk_level"],
+            "entity_count": r["entity_count"],
+        }
+        for r in _scan_history[:5]
     ]
+
+    return {
+        "total_scans": total,
+        "risk_score": round(avg_risk, 2),
+        "pii_detected": pii_total,
+        "compliance_rate": compliance_rate,
+        "recent_scans": recent,
+    }
