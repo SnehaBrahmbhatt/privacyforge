@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Get the root directory of the repo
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # Step 1: Install Python dependencies
@@ -12,9 +11,10 @@ pip install -r "$ROOT/backend/requirements.txt"
 echo "Building frontend..."
 cd "$ROOT/frontend"
 npm install
+npm install autoprefixer tailwindcss postcss --save-dev
 npm run build
 
-# Step 3: Start backend (with PYTHONPATH set to backend folder)
+# Step 3: Start backend
 echo "Starting backend..."
 cd "$ROOT/backend"
 export PYTHONPATH="$ROOT/backend"
