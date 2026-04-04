@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -9,122 +9,48 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
-  Download,
   Loader2,
   Globe,
   User,
   Heart,
 } from "lucide-react";
-import { api } from "@/lib/api";
-import { formatDate } from "@/lib/utils";
+import { api, type FrameworkResult } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { SkeletonCard } from "@/components/ui/skeleton";
-import { ErrorState } from "@/components/ErrorState";
+// Bug 8 fix: was importing from "@/components/ErrorState" (capital S) but the file
+// on disk is "Errorstate.tsx" (lowercase s). On Linux/Docker this causes a build error.
+// All imports must use the exact filename casing.
+import { ErrorState } from "@/components/Errorstate";
+import { useToast } from "@/hooks/use-toast";
 
-/* ─── types ─── */
-interface ComplianceCheck {
-  id: string;
-  label: string;
-  status: "pass" | "fail" | "warn";
-  description: string;
-  remediation?: string;
-}
-
-interface RegulationReport {
-  regulation: string;
-  score: number;
-  status: "compliant" | "partial" | "non-compliant";
-  checks: ComplianceCheck[];
-  last_checked: string;
-}
-
-interface ComplianceOverview {
-  overall_score: number;
-  reports: RegulationReport[];
-  generated_at: string;
-}
-
-/* ─── helpers ─── */
-const statusIcon = {
-  pass: <CheckCircle2 className="h-4 w-4 text-[#00e5a0]" />,
-  warn: <AlertTriangle className="h-4 w-4 text-amber-400" />,
-  fail: <XCircle className="h-4 w-4 text-red-400" />,
-};
+/* ─── supported frameworks ─── */
+const FRAMEWORKS = ["GDPR", "CCPA", "HIPAA", "PDPA"] as const;
+type Framework = (typeof FRAMEWORKS)[number];
 
 const regulationMeta: Record<string, { icon: React.ElementType; color: string }> = {
-  GDPR: { icon: Globe, color: "text-blue-400" },
-  CCPA: { icon: User, color: "text-purple-400" },
+  GDPR:  { icon: Globe, color: "text-blue-400" },
+  CCPA:  { icon: User,  color: "text-purple-400" },
   HIPAA: { icon: Heart, color: "text-pink-400" },
+  PDPA:  { icon: Globe, color: "text-teal-400" },
 };
 
+/* ─── helpers ─── */
 function overallShield(score: number) {
   if (score >= 80) return <ShieldCheck className="h-8 w-8 text-[#00e5a0]" />;
   if (score >= 50) return <ShieldAlert className="h-8 w-8 text-amber-400" />;
   return <ShieldOff className="h-8 w-8 text-red-400" />;
 }
 
-/* ─── check row ─── */
-function CheckRow({ check }: { check: ComplianceCheck }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="border-b border-white/5 last:border-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors text-left"
-      >
-        <span className="shrink-0">{statusIcon[check.status]}</span>
-        <span className="flex-1 text-sm text-white/80">{check.label}</span>
-        <Badge
-          variant="wm"
-          className={
-            check.status === "pass"
-              ? "bg-[#00e5a0]/10 text-[#00e5a0]"
-              : check.status === "warn"
-              ? "bg-amber-400/10 text-amber-400"
-              : "bg-red-400/10 text-red-400"
-          }
-        >
-          {check.status}
-        </Badge>
-        {open ? (
-          <ChevronDown className="h-3.5 w-3.5 text-white/20 shrink-0" />
-        ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-white/20 shrink-0" />
-        )}
-      </button>
-
-      {open && (
-        <div className="px-5 pb-4 pl-12 space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-150">
-          <p className="text-xs text-white/50 leading-relaxed">{check.description}</p>
-          {check.remediation && (
-            <div className="flex items-start gap-2 rounded-lg bg-amber-400/5 border border-amber-400/15 px-3 py-2">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-300/80">{check.remediation}</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── regulation panel ─── */
-function RegulationPanel({ report }: { report: RegulationReport }) {
+/* ─── framework result panel ─── */
+function FrameworkPanel({ result }: { result: FrameworkResult }) {
   const [expanded, setExpanded] = useState(false);
-  const meta = regulationMeta[report.regulation] ?? { icon: ShieldCheck, color: "text-white/50" };
+  const meta = regulationMeta[result.name] ?? { icon: ShieldCheck, color: "text-white/50" };
   const Icon = meta.icon;
-
-  const passCount = report.checks.filter((c) => c.status === "pass").length;
-  const failCount = report.checks.filter((c) => c.status === "fail").length;
-  const warnCount = report.checks.filter((c) => c.status === "warn").length;
 
   return (
     <Card glass className="overflow-hidden">
-      {/* Header */}
       <button
         className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors text-left"
         onClick={() => setExpanded((e) => !e)}
@@ -135,42 +61,31 @@ function RegulationPanel({ report }: { report: RegulationReport }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-white">{report.regulation}</p>
+            <p className="text-sm font-semibold text-white">{result.name}</p>
             <Badge
               variant="wm"
               className={
-                report.status === "compliant"
+                result.compliant
                   ? "bg-[#00e5a0]/10 text-[#00e5a0]"
-                  : report.status === "partial"
-                  ? "bg-amber-400/10 text-amber-400"
                   : "bg-red-400/10 text-red-400"
               }
             >
-              {report.status}
+              {result.compliant ? "compliant" : "non-compliant"}
             </Badge>
           </div>
           <div className="flex items-center gap-4 mt-2">
-            <Progress value={report.score} className="flex-1 h-1.5" />
+            <Progress value={result.score} className="flex-1 h-1.5" />
             <span className="text-xs text-white/50 shrink-0 w-10 text-right">
-              {report.score}%
+              {result.score}%
             </span>
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0 text-[10px] text-white/30">
           <span className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#00e5a0]" /> {passCount} pass
+            <CheckCircle2 className="h-3 w-3 text-[#00e5a0]" />
+            {result.violations.length === 0 ? "No violations" : `${result.violations.length} violation${result.violations.length > 1 ? "s" : ""}`}
           </span>
-          {warnCount > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> {warnCount} warn
-            </span>
-          )}
-          {failCount > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> {failCount} fail
-            </span>
-          )}
         </div>
 
         {expanded ? (
@@ -180,17 +95,24 @@ function RegulationPanel({ report }: { report: RegulationReport }) {
         )}
       </button>
 
-      {/* Expanded checks */}
       {expanded && (
-        <div className="border-t border-white/5 animate-in fade-in-0 slide-in-from-top-1 duration-150">
-          {report.checks.map((check) => (
-            <CheckRow key={check.id} check={check} />
-          ))}
-          <div className="px-5 py-2 border-t border-white/5">
-            <p className="text-[10px] text-white/20">
-              Last checked: {formatDate(report.last_checked)}
-            </p>
-          </div>
+        <div className="border-t border-white/5 px-5 py-4 space-y-3 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+          {result.violations.length === 0 ? (
+            <div className="flex items-center gap-2 text-sm text-[#00e5a0]">
+              <CheckCircle2 className="h-4 w-4" />
+              All checks passed
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-white/50 uppercase tracking-wider">Violations</p>
+              {result.violations.map((v, i) => (
+                <div key={i} className="flex items-start gap-2 rounded-lg bg-red-400/5 border border-red-400/15 px-3 py-2">
+                  <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-red-300/80">{v}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -199,166 +121,159 @@ function RegulationPanel({ report }: { report: RegulationReport }) {
 
 /* ─── page ─── */
 export default function Compliance() {
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<ComplianceOverview>({
-    queryKey: ["compliance"],
-    queryFn: () => api.get("/compliance").then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
-  });
+  const [text, setText] = useState("");
+  const [selectedFrameworks, setSelectedFrameworks] = useState<Framework[]>(["GDPR", "HIPAA"]);
+  const { toast } = useToast();
 
-  const { mutate: runCheck, isPending: checking } = useMutation({
-    mutationFn: () => api.post("/compliance/run").then((r) => r.data),
-    onSuccess: () => refetch(),
-  });
-
-  const { mutate: exportReport, isPending: exporting } = useMutation({
+  // Bug 4+5 fix: was using api.get("/compliance") (axios-style) which doesn't exist.
+  // Now uses api.complianceCheck() from api.ts which calls POST /api/compliance/check
+  const { mutate, data, isPending, error, reset } = useMutation({
     mutationFn: () =>
-      api
-        .get("/compliance/export", { responseType: "blob" })
-        .then((r) => {
-          const url = URL.createObjectURL(new Blob([r.data]));
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "compliance-report.pdf";
-          a.click();
-          URL.revokeObjectURL(url);
-        }),
+      api.complianceCheck(text, selectedFrameworks),
+    onError: () =>
+      toast({ title: "Compliance check failed", description: "Please try again.", variant: "destructive" }),
+    onSuccess: (result) =>
+      toast({
+        title: result.overall_compliant ? "All frameworks passed ✓" : "Violations detected",
+        description: `${result.frameworks.length} frameworks checked.`,
+      }),
   });
+
+  const toggleFramework = (fw: Framework) => {
+    setSelectedFrameworks((prev) =>
+      prev.includes(fw) ? prev.filter((f) => f !== fw) : [...prev, fw]
+    );
+    reset();
+  };
+
+  const canRun = text.trim().length > 10 && selectedFrameworks.length > 0;
+
+  const overallScore = data
+    ? Math.round(data.frameworks.reduce((sum, f) => sum + f.score, 0) / data.frameworks.length)
+    : null;
 
   return (
     <div className="min-h-screen p-6 lg:p-8 space-y-8 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-[#00e5a0]" />
-            Compliance
-          </h1>
-          <p className="text-sm text-white/40 mt-1">
-            GDPR · CCPA · HIPAA compliance status
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => exportReport()}
-            disabled={exporting || !data}
-          >
-            {exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            Export PDF
-          </Button>
-          <Button
-            variant="stripe"
-            size="sm"
-            className="gap-2"
-            onClick={() => runCheck()}
-            disabled={checking}
-          >
-            {checking ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            Run Check
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <ShieldCheck className="h-6 w-6 text-[#00e5a0]" />
+          Compliance Check
+        </h1>
+        <p className="text-sm text-white/40 mt-1">
+          Validate your data against GDPR · CCPA · HIPAA · PDPA
+        </p>
       </div>
+
+      {/* Input */}
+      <Card glass className="p-6 space-y-5">
+        <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+          1 · Paste Text or Data
+        </h2>
+        <textarea
+          placeholder={`Paste CSV headers, JSON, or free text to check for compliance violations...\n\nExample:\nname,email,phone,ssn\nJohn Doe,john@example.com,+1-555-0100,123-45-6789`}
+          value={text}
+          onChange={(e) => { setText(e.target.value); reset(); }}
+          className="w-full min-h-[160px] rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-mono text-white/80 placeholder:text-white/25 focus:outline-none focus:border-[#00e5a0]/40 resize-none"
+        />
+      </Card>
+
+      {/* Framework selection */}
+      <Card glass className="p-6 space-y-4">
+        <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+          2 · Select Frameworks
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {FRAMEWORKS.map((fw) => {
+            const selected = selectedFrameworks.includes(fw);
+            return (
+              <button
+                key={fw}
+                onClick={() => toggleFramework(fw)}
+                className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-150 ${
+                  selected
+                    ? "border-[#00e5a0]/50 bg-[#00e5a0]/10 text-[#00e5a0]"
+                    : "border-white/10 text-white/40 hover:text-white hover:border-white/20"
+                }`}
+              >
+                {fw}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* Run button */}
+      <Button
+        onClick={() => mutate()}
+        disabled={!canRun || isPending}
+        className="w-full gap-2 bg-[#00e5a0] text-black hover:bg-[#00e5a0]/90 font-semibold"
+      >
+        {isPending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Checking…
+          </>
+        ) : (
+          <>
+            <ShieldCheck className="h-4 w-4" />
+            Run Compliance Check
+          </>
+        )}
+      </Button>
 
       {/* Error */}
       {error && (
         <ErrorState
           kind="server"
-          message="Could not load compliance data."
-          onRetry={() => refetch()}
+          inline
+          message="The compliance check could not be completed. Please try again."
+          onRetry={() => mutate()}
         />
       )}
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="space-y-4">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      )}
-
-      {/* Data */}
-      {data && (
-        <>
+      {/* Results */}
+      {data && overallScore !== null && (
+        <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {/* Overall score hero */}
           <Card glass glow className="p-6">
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              {/* Donut-ish ring */}
               <div className="relative shrink-0">
                 <svg className="h-28 w-28 -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
                   <circle
-                    cx="50" cy="50" r="40"
-                    fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12"
-                  />
-                  <circle
-                    cx="50" cy="50" r="40"
-                    fill="none"
-                    stroke={data.overall_score >= 80 ? "#00e5a0" : data.overall_score >= 50 ? "#fbbf24" : "#f87171"}
+                    cx="50" cy="50" r="40" fill="none"
+                    stroke={overallScore >= 80 ? "#00e5a0" : overallScore >= 50 ? "#fbbf24" : "#f87171"}
                     strokeWidth="12"
                     strokeLinecap="round"
                     strokeDasharray={`${2 * Math.PI * 40}`}
-                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - data.overall_score / 100)}`}
+                    strokeDashoffset={`${2 * Math.PI * 40 * (1 - overallScore / 100)}`}
                     className="transition-all duration-700"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-bold text-white">{data.overall_score}</span>
+                  <span className="text-2xl font-bold text-white">{overallScore}</span>
                   <span className="text-[10px] text-white/40 uppercase">score</span>
                 </div>
               </div>
 
               <div className="flex-1 space-y-2 text-center sm:text-left">
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  {overallShield(data.overall_score)}
+                  {overallShield(overallScore)}
                   <h2 className="text-xl font-bold text-white">
-                    {data.overall_score >= 80
-                      ? "Compliant"
-                      : data.overall_score >= 50
-                      ? "Partially Compliant"
-                      : "Non-Compliant"}
+                    {data.overall_compliant ? "Fully Compliant" : overallScore >= 50 ? "Partially Compliant" : "Non-Compliant"}
                   </h2>
                 </div>
                 <p className="text-sm text-white/40">
-                  Across {data.reports.length} regulations ·{" "}
-                  {formatDate(data.generated_at)}
+                  Across {data.frameworks.length} framework{data.frameworks.length > 1 ? "s" : ""}
                 </p>
 
-                {/* Per-regulation quick pills */}
                 <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
-                  {data.reports.map((r) => (
-                    <div
-                      key={r.regulation}
-                      className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1"
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${
-                          r.status === "compliant"
-                            ? "bg-[#00e5a0]"
-                            : r.status === "partial"
-                            ? "bg-amber-400"
-                            : "bg-red-400"
-                        }`}
-                      />
-                      <span className="text-xs font-medium text-white/60">
-                        {r.regulation}
-                      </span>
-                      <span className="text-xs text-white/30">{r.score}%</span>
+                  {data.frameworks.map((f) => (
+                    <div key={f.name} className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1">
+                      <span className={`h-2 w-2 rounded-full ${f.compliant ? "bg-[#00e5a0]" : "bg-red-400"}`} />
+                      <span className="text-xs font-medium text-white/60">{f.name}</span>
+                      <span className="text-xs text-white/30">{f.score}%</span>
                     </div>
                   ))}
                 </div>
@@ -366,13 +281,13 @@ export default function Compliance() {
             </div>
           </Card>
 
-          {/* Per-regulation panels */}
+          {/* Per-framework panels */}
           <div className="space-y-4">
-            {data.reports.map((report) => (
-              <RegulationPanel key={report.regulation} report={report} />
+            {data.frameworks.map((result) => (
+              <FrameworkPanel key={result.name} result={result} />
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

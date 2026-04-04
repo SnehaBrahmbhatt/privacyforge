@@ -1,54 +1,36 @@
-from fastapi import APIRouter
-from app.routes.scan import _scan_history
+"""
+Dashboard routes.
 
-router = APIRouter()
+GET /api/health           — health check
+GET /api/dashboard/stats  — aggregated stats for the dashboard card
+GET /api/scans/recent     — last 10 scans (used by dashboard activity feed)
+
+Bug 6 fix: was importing _scan_history directly from app.routes.scan, creating a
+           split-brain where dashboard and history_service tracked different lists.
+           Now uses history_service exclusively, which is the single source of truth.
+"""
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from app.services import history_service
+from app.models.schemas import DashboardStats
+
+router = APIRouter(tags=["dashboard"])
 
 
 @router.get("/scans/recent")
 def recent_scans():
-    """Returns the 10 most recent scans — used by the Dashboard."""
-    return _scan_history[:10]
+    """Returns the 10 most recent scans — used by the Dashboard activity feed."""
+    return history_service.get_history(limit=10)
 
 
 @router.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "1.0.0"}
 
 
-@router.get("/dashboard/stats")
+@router.get("/dashboard/stats", response_model=DashboardStats)
 def dashboard_stats():
-    total = len(_scan_history)
-    if total == 0:
-        return {
-            "total_scans": 0,
-            "risk_score": 0,
-            "pii_detected": 0,
-            "compliance_rate": 100,
-            "recent_scans": [],
-        }
-
-    pii_total = sum(r["entity_count"] for r in _scan_history)
-    avg_risk = sum(
-        {"low": 0.1, "medium": 0.5, "high": 0.9}[r["risk_level"]]
-        for r in _scan_history
-    ) / total
-    compliant = sum(1 for r in _scan_history if r["risk_level"] == "low")
-    compliance_rate = round(compliant / total * 100, 1)
-
-    recent = [
-        {
-            "id": r["id"],
-            "timestamp": r["timestamp"],
-            "risk_level": r["risk_level"],
-            "entity_count": r["entity_count"],
-        }
-        for r in _scan_history[:5]
-    ]
-
-    return {
-        "total_scans": total,
-        "risk_score": round(avg_risk, 2),
-        "pii_detected": pii_total,
-        "compliance_rate": compliance_rate,
-        "recent_scans": recent,
-    }
+    """Aggregate stats for the dashboard stat cards."""
+    return history_service.get_stats()

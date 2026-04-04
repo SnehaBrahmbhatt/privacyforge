@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { SkeletonCard } from "@/components/ui/skeleton";
+// Bug 8 fix: was importing from "@/components/ErrorState" (capital S) but file is "Errorstate.tsx"
+// Standardised to match the actual filename on disk
 import { ErrorState } from "@/components/Errorstate";
 
 /* ─── stat card ─── */
@@ -113,7 +115,6 @@ function QuickAction({
 
 /* ─── page ─── */
 export default function Dashboard() {
-  // ✅ Uses api.dashboardStats() — correct fetch-based call
   const {
     data: stats,
     isLoading: statsLoading,
@@ -125,7 +126,6 @@ export default function Dashboard() {
     retry: 2,
   });
 
-  // ✅ Uses api.scanHistory() — reuses the same history endpoint
   const { data: recentScans, isLoading: recentLoading } = useQuery({
     queryKey: ["scan-history"],
     queryFn: api.scanHistory,
@@ -146,12 +146,15 @@ export default function Dashboard() {
     },
     {
       label: "Compliance Rate",
-      value: stats?.compliance_rate ? `${stats.compliance_rate}%` : "—",
+      value: stats?.compliance_rate != null ? `${stats.compliance_rate}%` : "—",
       icon: ShieldCheck,
     },
     {
       label: "Avg Risk Score",
-      value: stats?.risk_score ? `${Math.round(stats.risk_score * 100)}%` : "—",
+      // Bug 7 fix: risk_score from history_service is already 0–100 (integer).
+      // The old code did Math.round(stats.risk_score * 100) which turned e.g. 55 → 5500%.
+      // Correct display is simply `${stats.risk_score}%`.
+      value: stats?.risk_score != null ? `${stats.risk_score}%` : "—",
       icon: Clock,
     },
   ];

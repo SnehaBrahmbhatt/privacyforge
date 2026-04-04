@@ -30,6 +30,8 @@ export interface ScanResult {
   risk_score: number;
   risk_level: "low" | "medium" | "high";
   recommendations: string[];
+  entity_count: number;
+  scan_id: string;
 }
 
 export interface ScanHistory {
@@ -45,6 +47,8 @@ export interface AnonymizeResult {
   anonymized_text: string;
   entities_masked: number;
   strategy: string;
+  // Bug 3 fix: was missing original_entity_count — now matches AnonymizeResult schema on the backend
+  original_entity_count: number;
 }
 
 export interface FrameworkResult {
@@ -52,11 +56,13 @@ export interface FrameworkResult {
   compliant: boolean;
   violations: string[];
   score: number;
+  passed_checks: string[];
 }
 
 export interface ComplianceResult {
   overall_compliant: boolean;
   frameworks: FrameworkResult[];
+  overall_score: number;
 }
 
 export interface RecentScan {
@@ -68,6 +74,8 @@ export interface RecentScan {
 
 export interface DashboardStats {
   total_scans: number;
+  // Bug 7 fix: risk_score is 0–100 integer from the backend (not 0.0–1.0 float).
+  // The old code did Math.round(stats.risk_score * 100) which was wrong.
   risk_score: number;
   pii_detected: number;
   compliance_rate: number;
@@ -103,6 +111,8 @@ export const api = {
       body: JSON.stringify({ text, strategy, entities }),
     }),
 
+  // Bug 5 fix: was calling "/compliance/check" which matches the backend correctly
+  // (compliance router uses prefix="/compliance" and registers POST "/check")
   complianceCheck: (text: string, frameworks: string[]) =>
     apiFetch<ComplianceResult>("/compliance/check", {
       method: "POST",

@@ -5,9 +5,10 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SkeletonCard } from '@/components/ui/skeleton'
-import { ErrorState } from '@/components/ErrorState'
+// Bug 8 fix: was "@/components/ErrorState" (capital S) but actual file is "Errorstate.tsx"
+import { ErrorState } from '@/components/Errorstate'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { formatDate, riskBg } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import { History as HistoryIcon, Search, RefreshCw } from 'lucide-react'
 
 export default function History() {
@@ -15,7 +16,6 @@ export default function History() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<ScanHistory | null>(null)
 
-  // FIX: v5 object syntax + isPending
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['scan-history'],
     queryFn: api.scanHistory,
@@ -53,17 +53,24 @@ export default function History() {
         </Button>
       </div>
 
-      {/* Filters — Watermelon UI tab strip */}
+      {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-wm-text-muted"/>
-          <input className="wm-input pl-8 h-9 text-xs" placeholder="Search scans…" value={search} onChange={e => setSearch(e.target.value)}/>
+          <input
+            className="wm-input pl-8 h-9 text-xs"
+            placeholder="Search scans…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
         <div className="flex items-center gap-1 p-1 rounded-xl border border-wm-border bg-wm-bg-card">
           {(['all','low','medium','high'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
-                filter === f ? 'bg-wm-green/15 text-wm-green border border-wm-green/25' : 'text-wm-text-muted hover:text-wm-text'
+                filter === f
+                  ? 'bg-wm-green/15 text-wm-green border border-wm-green/25'
+                  : 'text-wm-text-muted hover:text-wm-text'
               }`}>
               {f}
             </button>
@@ -80,11 +87,10 @@ export default function History() {
       ) : (
         <div className="space-y-2">
           {filtered.map(scan => (
-            <button key={scan.id} onClick={() => setSelected(scan)}
-              className="w-full text-left group">
+            <button key={scan.id} onClick={() => setSelected(scan)} className="w-full text-left group">
               <Card hover className="flex items-center gap-4 group-hover:border-wm-green/25">
                 <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                  scan.risk_level==='low' ? 'bg-wm-green' : scan.risk_level==='medium' ? 'bg-amber-400' : 'bg-red-400'
+                  scan.risk_level === 'low' ? 'bg-wm-green' : scan.risk_level === 'medium' ? 'bg-amber-400' : 'bg-red-400'
                 }`}/>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-wm-text truncate">{scan.preview}</p>
@@ -92,7 +98,10 @@ export default function History() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-wm-text-dim font-mono">{scan.entity_count} entities</span>
-                  <Badge variant={scan.risk_level==='low'?'success':scan.risk_level==='medium'?'warning':'danger'} className="capitalize">
+                  <Badge
+                    variant={scan.risk_level === 'low' ? 'success' : scan.risk_level === 'medium' ? 'warning' : 'danger'}
+                    className="capitalize"
+                  >
                     {scan.risk_level}
                   </Badge>
                 </div>
@@ -102,7 +111,7 @@ export default function History() {
         </div>
       )}
 
-      {/* Detail modal — Watermelon UI dialog */}
+      {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -111,7 +120,12 @@ export default function History() {
           {selected && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Badge variant={selected.risk_level==='low'?'success':selected.risk_level==='medium'?'warning':'danger'} className="capitalize">{selected.risk_level} risk</Badge>
+                <Badge
+                  variant={selected.risk_level === 'low' ? 'success' : selected.risk_level === 'medium' ? 'warning' : 'danger'}
+                  className="capitalize"
+                >
+                  {selected.risk_level} risk
+                </Badge>
                 <span className="text-xs text-wm-text-muted">{formatDate(selected.timestamp)}</span>
               </div>
               <div className="bg-wm-bg rounded-lg border border-wm-border p-3">
@@ -121,12 +135,20 @@ export default function History() {
                 <div className="space-y-2">
                   <p className="wm-section-label">Entities Found</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {selected.scan_result.entities.map((e,i) => (
+                    {selected.scan_result.entities.map((e, i) => (
                       <Badge key={i} variant="outline" className="font-mono text-[10px]">
                         {e.type}: {e.value}
                       </Badge>
                     ))}
                   </div>
+                  {selected.scan_result.recommendations?.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="wm-section-label">Recommendations</p>
+                      {selected.scan_result.recommendations.map((r, i) => (
+                        <p key={i} className="text-xs text-wm-text-muted">• {r}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
