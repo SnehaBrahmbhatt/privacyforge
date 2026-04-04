@@ -1,3 +1,11 @@
+"""
+Generate routes — synthetic data from CSV files or public URLs.
+
+Bug 9 fix: removed the duplicate POST /anonymize handler that was here.
+           Anonymization is handled exclusively by routes/anonymize.py.
+           Two handlers for POST /api/anonymize caused FastAPI to silently
+           use the first one (this file), which had an incompatible signature.
+"""
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from uuid import uuid4
@@ -13,7 +21,7 @@ from app.services.output_service import upload_csv
 router = APIRouter()
 
 
-# ── URL-based generate (kept for backward compat) ─────────────────────────────
+# ── URL-based generate ─────────────────────────────────────────────────────────
 class URLRequest(BaseModel):
     url: str
 
@@ -59,26 +67,5 @@ async def generate_from_upload(file: UploadFile = File(...)):
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ── Anonymize uploaded file ────────────────────────────────────────────────────
-class AnonymizeRequest(BaseModel):
-    text: str
-    strategy: str = "mask"
-    entities: list[str] = []
-
-
-@router.post("/anonymize")
-async def anonymize(req: AnonymizeRequest):
-    """
-    Anonymize free-form text. Strategy: 'mask', 'suppress', 'generalize', 'synthetic'.
-    Entities: list of entity types to target e.g. ['name', 'email', 'phone'].
-    """
-    try:
-        from app.services.anonymize_service import anonymize_text
-        result = anonymize_text(req.text, req.strategy, req.entities)
-        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
