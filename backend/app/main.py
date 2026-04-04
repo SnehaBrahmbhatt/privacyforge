@@ -42,7 +42,7 @@ app.include_router(history.router, prefix="/api", tags=["history"])
 
 # Serve React frontend static files
 # __file__ = /repo/backend/main.py → go up one level to find frontend/dist
-frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "dist")
+frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../frontend/dist")
 frontend_dist = os.path.abspath(frontend_dist)
 
 if os.path.exists(frontend_dist):
