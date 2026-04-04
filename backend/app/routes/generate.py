@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 from uuid import uuid4
@@ -10,22 +9,36 @@ from app.services.output_service import upload_csv
 
 router = APIRouter()
 
+# ✅ Request model (must match frontend)
 class Request(BaseModel):
-    file_url: str
+    url: str
 
 @router.post("/generate")
 async def generate(req: Request):
-    df = await download_csv_from_url(req.file_url)
+    try:
+        # ✅ Step 1: Download CSV (FIXED: await)
+        df = await download_csv_from_url(req.url)
 
-    schema = detect_schema(df)
+        # ✅ Step 2: Detect schema
+        schema = detect_schema(df)
 
-    synthetic_df = generate_synthetic_dataframe(schema, rows=len(df))
+        # ✅ Step 3: Generate synthetic data
+        synthetic_df = generate_synthetic_dataframe(schema, rows=len(df))
 
-    filename = f"{uuid4()}.csv"
+        # ✅ Step 4: Save + upload
+        filename = f"{uuid4()}.csv"
+        download_url = upload_csv(synthetic_df, filename)
 
-    download_url = upload_csv(synthetic_df, filename)
+        # ✅ Step 5: Return response
+        return {
+            "download_url": download_url,
+            "schema": schema,
+            "preview": synthetic_df.head(20).to_dict(orient="records")
+        }
 
-    return {
-        "download_url": download_url,
-        "schema": schema
-    }
+    except Exception as e:
+        # ✅ Debug fallback (VERY IMPORTANT)
+        print("🔥 ERROR:", str(e))
+        return {
+            "error": str(e)
+        }
