@@ -1,103 +1,52 @@
-import type { Config } from "tailwindcss";
-
+/** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
-  prefix: "",
+  darkMode: ['class'],
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: { "2xl": "1400px" },
-    },
     extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
-        },
-        success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
-        },
-        sensitive: {
-          email: "hsl(var(--sensitive-email))",
-          phone: "hsl(var(--sensitive-phone))",
-        },
-        sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
-        },
+      fontFamily: {
+        sans: ['DM Sans', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+        display: ['Syne', 'sans-serif'],
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+      colors: {
+        wm: {
+          green: '#22c55e',
+          'green-light': '#4ade80',
+          'green-dark': '#16a34a',
+          'green-glow': 'rgba(34,197,94,0.15)',
+          bg: '#0a0f0a',
+          'bg-card': '#0f1a0f',
+          'bg-glass': 'rgba(15,26,15,0.7)',
+          border: '#1a2e1a',
+          'border-glow': 'rgba(34,197,94,0.3)',
+          text: '#e8f5e8',
+          'text-muted': '#6b8c6b',
+        },
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
-        "fade-in": {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "scale-in": {
-          "0%": { transform: "scale(0.95)", opacity: "0" },
-          "100%": { transform: "scale(1)", opacity: "1" },
-        },
+        'fade-in': { from: { opacity: '0', transform: 'translateY(8px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+        'slide-in': { from: { opacity: '0', transform: 'translateX(-12px)' }, to: { opacity: '1', transform: 'translateX(0)' } },
+        glow: { '0%,100%': { boxShadow: '0 0 8px rgba(34,197,94,0.3)' }, '50%': { boxShadow: '0 0 24px rgba(34,197,94,0.6)' } },
+        shimmer: { from: { backgroundPosition: '-200% 0' }, to: { backgroundPosition: '200% 0' } },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "fade-in": "fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-        "scale-in": "scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        'fade-in': 'fade-in 0.4s ease-out',
+        'slide-in': 'slide-in 0.3s ease-out',
+        glow: 'glow 2s ease-in-out infinite',
+        shimmer: 'shimmer 2s linear infinite',
+      },
+      backgroundImage: {
+        'grid-pattern': 'linear-gradient(rgba(34,197,94,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)',
+      },
+      backgroundSize: { grid: '32px 32px' },
+      boxShadow: {
+        'wm-sm': '0 0 10px rgba(34,197,94,0.15)',
+        'wm-md': '0 0 20px rgba(34,197,94,0.25)',
+        card: '0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.1)',
+        'card-hover': '0 4px 16px rgba(0,0,0,0.6), 0 0 0 1px rgba(34,197,94,0.25)',
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
-} satisfies Config;
+  plugins: [require('tailwindcss-animate')],
+}

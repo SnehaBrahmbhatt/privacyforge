@@ -1,40 +1,56 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppProvider } from "@/contexts/AppContext";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { ProcessingOverlay } from "@/components/ProcessingOverlay";
-import Dashboard from "./pages/Dashboard";
-import UploadPage from "./pages/UploadPage";
-import ResultsPage from "./pages/ResultsPage";
-import HistoryPage from "./pages/HistoryPage";
-import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import Sidebar from '@/components/Sidebar'
+import Dashboard from '@/pages/Dashboard'
+import PrivacyScan from '@/pages/PrivacyScan'
+import Anonymize from '@/pages/Anonymize'
+import Compliance from '@/pages/Compliance'
+import History from '@/pages/History'
+import { Toaster } from '@/components/ui/toaster'
 
-const queryClient = new QueryClient();
+function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const location = useLocation()
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+  // FIX: close sidebar on navigation (mobile)
+  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-wm-bg">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)} />
+      )}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="flex items-center gap-3 px-4 py-3 border-b border-wm-border lg:hidden">
+          <button onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-wm-green/10 text-wm-text-muted">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <span className="font-display font-bold text-wm-green text-lg">PrivacyForge</span>
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/scan" element={<PrivacyScan />} />
+            <Route path="/anonymize" element={<Anonymize />} />
+            <Route path="/compliance" element={<Compliance />} />
+            <Route path="/history" element={<History />} />
+          </Routes>
+        </main>
+      </div>
       <Toaster />
-      <Sonner />
-      <AppProvider>
-        <ProcessingOverlay />
-        <BrowserRouter>
-          <DashboardLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/results" element={<ResultsPage />} />
-              <Route path="/history" element={<HistoryPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </DashboardLayout>
-        </BrowserRouter>
-      </AppProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </div>
+  )
+}
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Layout />
+    </BrowserRouter>
+  )
+}
