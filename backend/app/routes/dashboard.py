@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.services import history_service
-from app.models.schemas import DashboardStats
+from services import history_service
+from models.schemas import DashboardStats
 
 router = APIRouter(tags=["dashboard"])
 

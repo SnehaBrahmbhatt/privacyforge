@@ -1,7 +1,7 @@
 import re
 from faker import Faker
 
-from app.models.schemas import AnonymizeRequest, AnonymizeResult
+from models.schemas import AnonymizeRequest, AnonymizeResult
 
 fake = Faker()
 

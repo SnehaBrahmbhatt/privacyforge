@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.models.schemas import ScanTextRequest, ScanResult
-from app.services import scan_service, history_service
+from models.schemas import ScanTextRequest, ScanResult
+from services import scan_service, history_service
 
 router = APIRouter(tags=["scan"])
 

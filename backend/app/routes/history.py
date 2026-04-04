@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.models.schemas import ScanHistory
-from app.services import history_service
+from models.schemas import ScanHistory
+from services import history_service
 
 router = APIRouter(tags=["history"])
 

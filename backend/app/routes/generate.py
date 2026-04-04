@@ -13,10 +13,10 @@ from io import StringIO
 
 import pandas as pd
 
-from app.services.file_service import download_csv_from_url
-from app.services.schema_service import detect_schema
-from app.services.generator_service import generate_synthetic_dataframe
-from app.services.output_service import upload_csv
+from services.file_service import download_csv_from_url
+from services.schema_service import detect_schema
+from services.generator_service import generate_synthetic_dataframe
+from services.output_service import upload_csv
 
 router = APIRouter()
 
