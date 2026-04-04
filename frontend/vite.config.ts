@@ -4,6 +4,7 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  base: "/", 
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -12,11 +13,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // All /api/* requests are forwarded to the FastAPI backend
       "/api": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
-        // Do NOT rewrite — FastAPI routes already start with /api
       },
     },
   },
