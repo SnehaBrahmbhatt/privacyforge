@@ -1,25 +1,53 @@
-from faker import Faker
-import pandas as pd
+"""
+Synthetic data generation service.
+Uses Faker to generate realistic values for each detected schema type.
+"""
+from __future__ import annotations
+
 import random
+
+import pandas as pd
+from faker import Faker
 
 fake = Faker()
 
-def generate_fake_value(col_type):
-    if col_type == "name":
-        return fake.name()
-    elif col_type == "email":
-        return fake.email()
-    elif col_type == "phone":
-        return fake.phone_number()
-    elif col_type == "numeric":
-        return random.randint(1, 1000)
-    else:
-        return fake.word()
+# Type → generator function mapping
+_GENERATORS: dict[str, callable] = {
+    "name":        fake.name,
+    "email":       fake.email,
+    "phone":       fake.phone_number,
+    "address":     fake.address,
+    "date":        lambda: fake.date(pattern="%Y-%m-%d"),
+    "ssn":         fake.ssn,
+    "credit_card": lambda: fake.credit_card_number(card_type=None),
+    "ip_address":  fake.ipv4,
+    "url":         fake.url,
+    "company":     fake.company,
+    "job":         fake.job,
+    "text":        lambda: fake.sentence(nb_words=6),
+    "numeric":     lambda: random.randint(1, 10_000),
+}
 
-def generate_synthetic_dataframe(schema, rows=100):
-    data = {}
+
+def generate_fake_value(col_type: str) -> str | int:
+    """Return a single fake value for the given schema type."""
+    fn = _GENERATORS.get(col_type, fake.word)
+    return fn()
+
+
+def generate_synthetic_dataframe(
+    schema: dict[str, dict],
+    rows: int = 100,
+) -> pd.DataFrame:
+    """
+    Generate a DataFrame with `rows` rows of synthetic data
+    matching the provided schema.
+    """
+    rows = max(1, min(rows, 10_000))   # guard: 1 ≤ rows ≤ 10 000
+    data: dict[str, list] = {}
 
     for col, meta in schema.items():
-        data[col] = [generate_fake_value(meta["type"]) for _ in range(rows)]
+        col_type = meta.get("type", "text")
+        data[col] = [generate_fake_value(col_type) for _ in range(rows)]
 
     return pd.DataFrame(data)

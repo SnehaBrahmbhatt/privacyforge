@@ -5,7 +5,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },  // ← FIX: was missing
+    alias: { '@': path.resolve(__dirname, './src') },
   },
   server: {
     port: 5173,
@@ -13,7 +13,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ''),  // /api/scan → /scan
+        rewrite: (p) => p.replace(/^\/api/, ''),
       },
     },
   },
