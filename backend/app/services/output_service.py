@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
-fromutils.config import settings
+from utils.config import settings
 
 
 def _supabase_client():
