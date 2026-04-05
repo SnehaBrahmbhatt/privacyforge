@@ -6,17 +6,26 @@ import { api } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
 const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/scan', icon: ScanSearch, label: 'Privacy Scan' },
-  { to: '/anonymize', icon: ShieldCheck, label: 'Anonymize' },
-  { to: '/compliance', icon: FileText, label: 'Compliance' },
-  { to: '/history', icon: History, label: 'History' },
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard'    },
+  { to: '/scan',       icon: ScanSearch,      label: 'Privacy Scan' },
+  { to: '/anonymize',  icon: ShieldCheck,     label: 'Anonymize'    },
+  { to: '/compliance', icon: FileText,        label: 'Compliance'   },
+  { to: '/history',    icon: History,         label: 'History'      },
 ]
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [dark, setDark] = useState(() => localStorage.getItem('pf-theme') !== 'light')
+  // Fix: initialise from localStorage; if nothing stored, default to dark
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem('pf-theme')
+    if (stored) return stored === 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
-  // Health check
+  // Sync the .dark class on mount so the sidebar state reflects the real DOM
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark)
+  }, [dark])
+
   const { data: health } = useQuery({
     queryKey: ['health'],
     queryFn: api.health,
@@ -33,7 +42,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <aside className={cn(
-      'fixed inset-y-0 left-0 z-30 w-64 flex flex-col bg-wm-bg border-r border-wm-border transition-transform duration-300',
+      'fixed inset-y-0 left-0 z-30 w-64 flex flex-col border-r transition-transform duration-300',
+      'bg-wm-bg border-wm-border',
       'lg:relative lg:translate-x-0',
       open ? 'translate-x-0' : '-translate-x-full'
     )}>
@@ -77,8 +87,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <span className="text-xs text-wm-text-muted">{health ? 'Backend online' : 'Backend offline'}</span>
         </div>
         {/* Theme toggle */}
-        <button onClick={toggleTheme}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-wm-text-muted hover:text-wm-text hover:bg-wm-green/5 transition-all">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-wm-text-muted hover:text-wm-text hover:bg-wm-green/5 transition-all"
+        >
           {dark ? <Sun size={15} /> : <Moon size={15} />}
           {dark ? 'Light mode' : 'Dark mode'}
         </button>

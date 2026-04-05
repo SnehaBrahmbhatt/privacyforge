@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.models.schemas import AnonymizeRequest, AnonymizeResult
-from app.services import anonymize_service
+from models.schemas import AnonymizeRequest, AnonymizeResult
+from services import anonymize_service
 
 router = APIRouter(tags=["anonymize"])
 

@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.models.schemas import ComplianceCheckRequest, ComplianceResult
-from app.services import compliance_service
+from models.schemas import ComplianceCheckRequest, ComplianceResult
+from services import compliance_service
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
 

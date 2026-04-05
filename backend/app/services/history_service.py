@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.models.schemas import ScanHistory, ScanResult
+from models.schemas import ScanHistory, ScanResult
 
 # ── In-memory store ───────────────────────────────────────────────────────────
 
