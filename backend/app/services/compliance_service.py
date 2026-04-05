@@ -4,12 +4,12 @@ Implements rule-based checks for GDPR, CCPA, HIPAA, and PDPA.
 """
 from __future__ import annotations
 
-from app.models.schemas import (
+from models.schemas import (
     ComplianceCheckRequest,
     ComplianceResult,
     FrameworkResult,
 )
-from app.services.scan_service import scan_text, _RISK_WEIGHT
+from services.scan_service import scan_text, _RISK_WEIGHT
 
 
 # ── Rule definitions per framework ───────────────────────────────────────────

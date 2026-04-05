@@ -13,7 +13,7 @@ import re
 import uuid
 from typing import Optional
 
-from app.models.schemas import EntityResult, ScanResult
+from models.schemas import EntityResult, ScanResult
 
 # ── Regex fallback patterns ───────────────────────────────────────────────────
 

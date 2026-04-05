@@ -1,18 +1,22 @@
 import { cn } from '@/lib/utils'
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  glow?: boolean
+  glow?:  boolean
   glass?: boolean
+  hover?: boolean   // Fix: was referenced in History.tsx but missing from interface
 }
 
-export function Card({ className, glow, glass, ...props }: CardProps) {
+export function Card({ className, glow, glass, hover, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-wm-border bg-wm-bg-card p-5 transition-all duration-200',
-        glow && 'shadow-wm-sm hover:shadow-wm-md animate-glow',
+        'rounded-xl border p-5 transition-all duration-200',
+        'bg-wm-bg-card border-wm-border',
+        'shadow-card',
+        glow  && 'shadow-wm-sm hover:shadow-wm-md animate-glow',
         glass && 'bg-wm-bg-glass backdrop-blur-md border-wm-border/50',
-        'hover:border-wm-green/20 shadow-card hover:shadow-card-hover',
+        hover && 'hover:border-wm-green/25 hover:shadow-card-hover cursor-pointer',
+        !hover && 'hover:border-wm-green/15',
         className
       )}
       {...props}
@@ -37,5 +41,10 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 }
 
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex items-center pt-4 border-t border-wm-border mt-4', className)} {...props} />
+  return (
+    <div
+      className={cn('flex items-center pt-4 border-t border-wm-border mt-4', className)}
+      {...props}
+    />
+  )
 }
