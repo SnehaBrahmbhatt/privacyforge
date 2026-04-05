@@ -5,7 +5,7 @@ GET /api/health           — health check
 GET /api/dashboard/stats  — aggregated stats for the dashboard card
 GET /api/scans/recent     — last 10 scans (used by dashboard activity feed)
 
-Bug 6 fix: was importing _scan_history directly from app.routes.scan, creating a
+Bug 6 fix: was importing _scan_history directly fromroutes.scan, creating a
            split-brain where dashboard and history_service tracked different lists.
            Now uses history_service exclusively, which is the single source of truth.
 """
